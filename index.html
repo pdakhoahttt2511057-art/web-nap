@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nạp game garena</title>
+    <style>
+        :root { --primary-color: #d32f2f; --primary-hover: #b71c1c; --bg-color: #f4f7f6; --box-bg: #ffffff; --text-color: #333333; --border-color: #e0e0e0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; padding: 20px; margin: 0; color: var(--text-color); }
+        .container { background: var(--box-bg); padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); width: 100%; max-width: 500px; }
+        h2 { text-align: center; margin-top: 0; margin-bottom: 25px; text-transform: uppercase; color: var(--primary-color); font-weight: 800; border-bottom: 2px solid var(--primary-color); padding-bottom: 15px; }
+        label { font-weight: 600; font-size: 14px; color: #555; margin-bottom: 8px; display: block; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+        .price-btn { border: 2px solid var(--border-color); padding: 12px 5px; border-radius: 8px; cursor: pointer; text-align: center; background: #fafafa; transition: 0.2s; }
+        .price-btn:hover { border-color: #ff9800; }
+        .price-btn.active { border-color: var(--primary-color); background: #ffebee; }
+        .price-btn .original { font-size: 14px; color: #888; text-decoration: line-through; display: block; margin-bottom: 4px; }
+        .price-btn .discounted { font-size: 16px; color: var(--primary-color); display: block; font-weight: bold; }
+        button.submit-btn { width: 100%; padding: 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; text-transform: uppercase; transition: 0.3s; }
+        button.submit-btn:hover { background: var(--primary-hover); }
+        button.submit-btn:disabled { background: #999; cursor: not-allowed; }
+        
+        #result-area { display: none; margin-top: 25px; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .bill-info, .bank-details { background: #f9f9f9; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 14px; }
+        .bill-info p, .bank-details p { margin: 8px 0; display: flex; justify-content: space-between; align-items: center;}
+        .val, .info { font-weight: bold; color: #111; }
+        .payment-box { border: 2px dashed var(--primary-color); border-radius: 12px; padding: 20px; background: #fffaf0; text-align: center; position: relative;}
+        #qr-image { width: 100%; max-width: 220px; height: auto; margin: 10px auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .copy-btn { background: #e0e0e0; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        .copy-btn:hover { background: #ccc; }
+        
+        .timer-box { font-size: 18px; font-weight: bold; color: var(--primary-color); text-align: center; margin-bottom: 15px; padding: 10px; background: #ffebee; border-radius: 8px; }
+        .expired-msg { display: none; color: white; background: #d32f2f; padding: 20px; border-radius: 8px; font-weight: bold; font-size: 18px; text-align: center; }
+        .warning-text { color: var(--primary-color); font-size: 13px; font-weight: 600; margin-top: 15px; display: block; text-align: center; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Nạp game garena</h2>
+    
+    <div id="input-area">
+        <label>Chọn Game</label>
+        <select id="game">
+            <option value="Liên Quân Mobile">Liên Quân Mobile</option>
+            <option value="Free Fire">Free Fire</option>
+            <option value="Delta Force">Delta Force</option>
+            <option value="FC Mobile">FC Mobile</option>
+            <option value="Cái Thế Anh Hùng">Cái Thế Anh Hùng</option>
+        </select>
+        
+        <label>ID Nhân vật (UID)</label>
+        <input type="text" id="uid" placeholder="Nhập chính xác UID nhân vật...">
+        
+        <label>Chọn mệnh giá (Giảm 6%)</label>
+        <div class="price-grid" id="price-container"></div>
+        
+        <button id="btn-create" class="submit-btn" onclick="createPayment()">Tạo Đơn Hàng & Thanh Toán</button>
+    </div>
+
+    <div id="result-area">
+        <div class="timer-box" id="timer-display">
+            Thanh toán trong: <span id="countdown">10:00</span>
+        </div>
+
+        <div id="active-order">
+            <div class="bill-info">
+                <p>Mã đơn: <span class="val" id="out-order-id" style="color: var(--primary-color);"></span></p>
+                <p>Game: <span class="val" id="out-game"></span></p>
+                <p>UID: <span class="val" id="out-uid"></span></p>
+                <p>Gói nạp: <span class="val" id="out-original"></span></p>
+                <p>Thành tiền: <span class="val" id="out-discounted" style="color: var(--primary-color); font-size: 16px;"></span></p>
+                <p>Thời gian tạo: <span class="val" id="out-time"></span></p>
+            </div>
+
+            <div class="payment-box">
+                <div style="color: var(--primary-color); font-weight: 800; font-size: 15px; margin-bottom: 10px;">QUÉT MÃ ĐỂ THANH TOÁN</div>
+                <img id="qr-image" src="" alt="QR Code">
+                
+                <div class="bank-details">
+                    <p><span>Ngân hàng:</span> <span class="info">Vietcombank</span></p>
+                    <p><span>Chủ TK:</span> <span class="info">PHAM DOAN ANH KHOA</span></p>
+                    <p><span>Số TK:</span> <span><span class="info">9794467190</span><button class="copy-btn" onclick="copyText('9794467190')">Copy</button></span></p>
+                    <p><span>Số tiền:</span> <span><span class="info" id="bank-amount"></span><button class="copy-btn" id="copy-amount-btn">Copy</button></span></p>
+                    <p><span>Nội dung:</span> <span><span class="info" id="bank-content" style="color: var(--primary-color);"></span><button class="copy-btn" id="copy-content-btn">Copy</button></span></p>
+                </div>
+                <span class="warning-text">⚠️ Chuyển đúng NỘI DUNG & SỐ TIỀN<br>để hệ thống nạp tự động.</span>
+            </div>
+        </div>
+
+        <div class="expired-msg" id="expired-msg">
+            ĐƠN HÀNG ĐÃ HẾT HẠN!<br>
+            <span style="font-size: 14px; font-weight: normal; margin-top: 10px; display: block;">Vui lòng tải lại trang để tạo đơn mới.</span>
+        </div>
+
+        <button class="submit-btn" style="margin-top: 20px; background: #666;" onclick="location.reload()">Quay lại / Tạo đơn mới</button>
+    </div>
+</div>
+
+<script>
+    // --- CẤU HÌNH ---
+    const BANK_ID = "VCB"; 
+    const ACCOUNT_NO = "9794467190"; 
+    const ACCOUNT_NAME = "PHAM DOAN ANH KHOA";     
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbw0Jo2onzr2PHjrYEJrk_6D0R-Qm4dPSdxTELSNhneOB00BTDAQ53tAdWwl6VapkgYU/exec";
+
+    const denominations = [20000, 50000, 100000, 200000, 500000, 1000000];
+    let selectedOriginal = 0; 
+    let selectedDiscounted = 0;
+    let countdownInterval;
+
+    // Khởi tạo danh sách mệnh giá
+    const priceContainer = document.getElementById('price-container');
+    denominations.forEach(amount => {
+        const discounted = amount * 0.94;
+        const btn = document.createElement('div');
+        btn.className = 'price-btn';
+        btn.innerHTML = `<span class="original">${amount.toLocaleString('vi-VN')}đ</span><span class="discounted">${discounted.toLocaleString('vi-VN')}đ</span>`;
+        btn.onclick = function() {
+            document.querySelectorAll('.price-btn').forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+            selectedOriginal = amount; 
+            selectedDiscounted = discounted;
+        };
+        priceContainer.appendChild(btn);
+    });
+
+    function generateOrderID() {
+        return 'GA' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    }
+
+    function createPayment() {
+        const game = document.getElementById('game').value;
+        const uid = document.getElementById('uid').value.trim();
+        
+        if (!uid) return alert("Vui lòng nhập UID!");
+        if (selectedOriginal === 0) return alert("Vui lòng chọn mệnh giá!");
+
+        // 1. Hiệu ứng chờ
+        document.getElementById('btn-create').innerText = "Đang xử lý...";
+        document.getElementById('btn-create').disabled = true;
+
+        const orderId = generateOrderID();
+        const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact.png?amount=${selectedDiscounted}&addInfo=${orderId}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+
+        // 2. Điền dữ liệu vào màn hình kết quả
+        document.getElementById('out-order-id').innerText = orderId;
+        document.getElementById('out-game').innerText = game;
+        document.getElementById('out-uid').innerText = uid;
+        document.getElementById('out-original').innerText = selectedOriginal.toLocaleString('vi-VN') + "đ";
+        document.getElementById('out-discounted').innerText = selectedDiscounted.toLocaleString('vi-VN') + "đ";
+        document.getElementById('out-time').innerText = new Date().toLocaleString('vi-VN');
+        
+        document.getElementById('bank-amount').innerText = selectedDiscounted.toLocaleString('vi-VN') + "đ";
+        document.getElementById('bank-content').innerText = orderId;
+        document.getElementById('qr-image').src = qrUrl;
+
+        // Cài đặt nút copy
+        document.getElementById('copy-amount-btn').onclick = () => copyText(selectedDiscounted.toString());
+        document.getElementById('copy-content-btn').onclick = () => copyText(orderId);
+
+        // 3. Gửi dữ liệu sang Google Sheets (Chạy ngầm)
+        fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                orderId: orderId,
+                game: game,
+                uid: uid,
+                originalPrice: selectedOriginal,
+                discountedPrice: selectedDiscounted
+            })
+        }).then(() => console.log("Hóa đơn đã gửi"));
+
+        // 4. Chuyển màn hình
+        document.getElementById('input-area').style.display = 'none';
+        document.getElementById('result-area').style.display = 'block';
+
+        startTimer(10 * 60); // 10 phút
+    }
+
+    function startTimer(duration) {
+        let timer = duration, minutes, seconds;
+        countdownInterval = setInterval(function () {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            document.getElementById('countdown').textContent = minutes + ":" + seconds;
+
+            if (--timer < 0) {
+                clearInterval(countdownInterval);
+                document.getElementById('active-order').style.display = 'none';
+                document.getElementById('timer-display').style.display = 'none';
+                document.getElementById('expired-msg').style.display = 'block';
+            }
+        }, 1000);
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Đã sao chép: " + text);
+        });
+    }
+</script>
+
+</body>
+</html>
