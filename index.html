@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nạp game garena</title>
+    <title>Nạp game Garena</title>
     <style>
         :root { --primary-color: #d32f2f; --primary-hover: #b71c1c; --bg-color: #f4f7f6; --box-bg: #ffffff; --text-color: #333333; --border-color: #e0e0e0; --success-color: #4caf50; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); display: flex; justify-content: center; padding: 20px; margin: 0; color: var(--text-color); }
@@ -37,10 +37,6 @@
         .timer-box { font-size: 18px; font-weight: bold; color: var(--primary-color); text-align: center; margin-bottom: 15px; padding: 10px; background: #ffebee; border-radius: 8px; }
         .expired-msg { display: none; color: white; background: #d32f2f; padding: 20px; border-radius: 8px; font-weight: bold; font-size: 18px; text-align: center; }
         .warning-text { color: var(--primary-color); font-size: 13px; font-weight: 600; margin-top: 15px; display: block; text-align: center; line-height: 1.4; }
-
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto 10px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .waiting-text { font-size: 15px; font-weight: bold; color: var(--primary-color); margin-top: 10px; }
         
         .success-icon { font-size: 70px; color: var(--success-color); margin-bottom: 15px; }
     </style>
@@ -48,7 +44,7 @@
 <body>
 
 <div class="container">
-    <h2>Nạp game garena</h2>
+    <h2>Nạp game Garena</h2>
     
     <div id="input-area">
         <label>Chọn Game</label>
@@ -61,7 +57,7 @@
         </select>
         
         <label>ID Nhân vật (UID)</label>
-        <input type="text" id="uid" placeholder="Nhập chính xác UID nhân vật...">
+        <input type="text" id="uid" placeholder="Nhập chính xác UID (chỉ nhập số)..." maxlength="20" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
         
         <label>Chọn mệnh giá (Giảm 6%)</label>
         <div class="price-grid" id="price-container"></div>
@@ -71,13 +67,14 @@
 
     <div id="result-area">
         <div class="timer-box" id="timer-display">
-            Thanh toán trong: <span id="countdown">10:00</span>
+            Thanh toán trong: <span id="countdown">30:00</span>
         </div>
 
         <div id="active-order">
             <div class="bill-info">
                 <p>Mã đơn: <span class="val" id="out-order-id" style="color: var(--primary-color);"></span></p>
-                <p>Thời gian tạo: <span class="val" id="out-created-time"></span></p> <p>Game: <span class="val" id="out-game"></span></p>
+                <p>Thời gian tạo: <span class="val" id="out-created-time"></span></p> 
+                <p>Game: <span class="val" id="out-game"></span></p>
                 <p>UID: <span class="val" id="out-uid"></span></p>
                 <p>Gói nạp: <span class="val" id="out-original"></span></p>
                 <p>Thành tiền: <span class="val" id="out-discounted" style="color: var(--primary-color); font-size: 16px;"></span></p>
@@ -89,7 +86,7 @@
                 <img id="qr-image" src="" alt="QR Code" crossorigin="anonymous">
                 
                 <div class="action-btns">
-                    <button class="small-btn" onclick="downloadQR()">Tải Ảnh QR</button>
+                    <button class="small-btn" onclick="downloadQR()">Tải ảnh QR</button>
                 </div>
                 
                 <div class="bank-details">
@@ -100,11 +97,6 @@
                     <p><span>Nội dung:</span> <span><span class="info" id="bank-content" style="color: var(--primary-color);"></span><button class="copy-btn" id="copy-content-btn">Copy</button></span></p>
                 </div>
                 <span class="warning-text">Chuyển đúng NỘI DUNG & SỐ TIỀN để hệ thống nạp tự động.</span>
-                
-                <hr style="border: 0; border-top: 1px dashed #ddd; margin: 20px 0;">
-                <div class="loader"></div>
-                <p class="waiting-text">Đang chờ xác nhận giao dịch...</p>
-                <p style="font-size: 12px; color: #666;">Hệ thống đang kiểm tra. Vui lòng không đóng trang này.</p>
             </div>
         </div>
 
@@ -117,7 +109,7 @@
     </div>
 
     <div id="success-area">
-        <div class="success-icon">✔</div>
+        <div class="success-icon">✓</div>
         <h2 style="color: var(--success-color); border:none;">Nạp Thành Công!</h2>
         <div class="bill-info" style="margin-top: 20px;">
             <p>Mã đơn: <span class="val" id="success-order-id" style="color: var(--primary-color);"></span></p>
@@ -131,18 +123,19 @@
 </div>
 
 <script>
-    // --- CẤU HÌNH ---
+    // --- CẤU HÌNH NGÂN HÀNG ---
     const BANK_ID = "VCB"; 
     const ACCOUNT_NO = "9794467190"; 
     const ACCOUNT_NAME = "PHAM DOAN ANH KHOA";     
-    // ĐÃ CHỈNH SỬA LẠI LINK THEO YÊU CẦU
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbylZiHIyLn4mMt3s7xHjYLzAG6YFT1XsZuigRODi7qCFJY6lE7qRQ3zdqTk8cJuwF9e/exec";
+
+    // --- CẤU HÌNH BOT TELEGRAM ---
+    const TELEGRAM_BOT_TOKEN = "8120110998:AAGTA6O8j7LRjNdmbKv-AcwShaT_njRdWqw"; 
+    const TELEGRAM_CHAT_ID = "6683190361";
 
     const denominations = [20000, 50000, 100000, 200000, 500000, 1000000];
     let selectedOriginal = 0; 
     let selectedDiscounted = 0;
     let countdownInterval;
-    let checkStatusInterval;
     let currentOrderId = "";
 
     const priceContainer = document.getElementById('price-container');
@@ -169,7 +162,6 @@
             if (timeRemaining > 0) {
                 showResultArea(orderData);
                 startTimer(timeRemaining, orderData.expireAt);
-                startCheckingStatus(orderData.orderId, orderData); // Bắt đầu kiểm tra trạng thái
             } else {
                 localStorage.removeItem('currentOrder');
             }
@@ -180,11 +172,40 @@
         return 'GA' + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
+    // Hàm gửi thông báo về Telegram
+    function sendTelegramNotification(orderData) {
+        if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN.includes("ĐIỀN_TOKEN")) {
+            console.log("Chưa cấu hình Bot Telegram.");
+            return;
+        }
+
+        const message = `🔔 <b>CÓ ĐƠN NẠP MỚI</b> 🔔\n` +
+                        `- Mã đơn: <b>${orderData.orderId}</b>\n` +
+                        `- Game: ${orderData.game}\n` +
+                        `- UID: <code>${orderData.uid}</code>\n` +
+                        `- Gói nạp gốc: ${orderData.original.toLocaleString('vi-VN')}đ\n` +
+                        `- Cần thanh toán: <b>${orderData.discounted.toLocaleString('vi-VN')}đ</b>\n` +
+                        `- Thời gian: ${orderData.createdAt}`;
+
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        }).catch(err => console.error("Lỗi khi gửi thông báo Telegram:", err));
+    }
+
     function createPayment() {
         const game = document.getElementById('game').value;
         const uid = document.getElementById('uid').value.trim();
         
+        // KIỂM TRA ĐỘ DÀI
         if (!uid) return alert("Vui lòng nhập UID!");
+        if (uid.length < 5) return alert("UID không hợp lệ (quá ngắn)!");
+        
         if (selectedOriginal === 0) return alert("Vui lòng chọn mệnh giá!");
 
         document.getElementById('btn-create').innerText = "Đang xử lý...";
@@ -194,29 +215,22 @@
         currentOrderId = orderId;
         const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact.png?amount=${selectedDiscounted}&addInfo=${orderId}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
-        const expireAt = Date.now() + (10 * 60 * 1000);
-        // Lấy thời gian tạo đơn
+        const expireAt = Date.now() + (30 * 60 * 1000); // 30 phút
         const createdAt = new Date().toLocaleString('vi-VN'); 
 
         const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt, createdAt };
         
         localStorage.setItem('currentOrder', JSON.stringify(orderData));
 
-        fetch(GOOGLE_SHEET_URL, {
-            method: 'POST',
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ orderId, game, uid, originalPrice: selectedOriginal, discountedPrice: selectedDiscounted, createdAt })
-        });
+        // Gọi hàm gửi Telegram ngay sau khi tạo đơn
+        sendTelegramNotification(orderData);
 
         showResultArea(orderData);
-        startTimer(10 * 60, expireAt);
-        startCheckingStatus(orderId, orderData); 
+        startTimer(30 * 60, expireAt); 
     }
 
     function showResultArea(data) {
         document.getElementById('out-order-id').innerText = data.orderId;
-        // Hiển thị thời gian tạo đơn
         document.getElementById('out-created-time').innerText = data.createdAt; 
         document.getElementById('out-game').innerText = data.game;
         document.getElementById('out-uid').innerText = data.uid;
@@ -227,6 +241,7 @@
         document.getElementById('bank-content').innerText = data.orderId;
         document.getElementById('qr-image').src = data.qrUrl;
 
+        // Cấu hình các nút Copy
         document.getElementById('copy-amount-btn').onclick = () => copyText(data.discounted.toString());
         document.getElementById('copy-content-btn').onclick = () => copyText(data.orderId);
 
@@ -241,7 +256,6 @@
             
             if (timer < 0) {
                 clearInterval(countdownInterval);
-                clearInterval(checkStatusInterval); 
                 localStorage.removeItem('currentOrder');
                 document.getElementById('active-order').style.display = 'none';
                 document.getElementById('timer-display').style.display = 'none';
@@ -255,22 +269,6 @@
             seconds = seconds < 10 ? "0" + seconds : seconds;
             document.getElementById('countdown').textContent = minutes + ":" + seconds;
         }, 1000);
-    }
-
-    function startCheckingStatus(orderId, data) {
-        clearInterval(checkStatusInterval);
-        checkStatusInterval = setInterval(() => {
-            fetch(`${GOOGLE_SHEET_URL}?orderId=${orderId}`)
-                .then(res => res.text())
-                .then(status => {
-                    if (status.trim() === "true") {
-                        clearInterval(checkStatusInterval);
-                        clearInterval(countdownInterval);
-                        showSuccessArea(data);
-                    }
-                })
-                .catch(err => console.error("Lỗi kiểm tra trạng thái:", err));
-        }, 5000); 
     }
 
     function showSuccessArea(data) {
@@ -303,7 +301,6 @@
     }
 
     function cancelOrder() {
-        clearInterval(checkStatusInterval);
         localStorage.removeItem('currentOrder');
         location.reload();
     }
