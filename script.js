@@ -77,7 +77,18 @@ function sendTelegramNotification(orderData) {
     });
 }
 
-function listenToAdmin(orderData) {
+        window.URL.revokeObjectURL(url);
+        alert("Đã tải mã QR về máy!");
+    } catch (e) {
+        window.open(imgUrl, '_blank');
+    }
+}
+
+function cancelOrder() {
+
+function createPayment() {
+    const game = document.getElementById('game').value;
+    const uid = document.getElementById('uid').value.function listenToAdmin(orderData) {
     clearInterval(adminCheckInterval);
     
     adminCheckInterval = setInterval(async () => {
@@ -89,18 +100,32 @@ function listenToAdmin(orderData) {
                 for (let update of json.result) {
                     lastUpdateId = update.update_id + 1; 
                     
+                    // Xử lý khi Admin bấm nút DUYỆT
                     if (update.callback_query && update.callback_query.data) {
                         if (update.callback_query.data === `DUYET_${orderData.orderId}`) {
                             
+                            // 1. Phản hồi để tắt vòng xoay loading của nút bấm
                             fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
                                     callback_query_id: update.callback_query.id, 
-                                    text: "Đã duyệt đơn thành công! Web của khách đã chuyển trạng thái." 
+                                    text: "Đã duyệt thành công! Đang xoá tin nhắn..." 
                                 })
                             });
 
+                            // 2. YÊU CẦU BOT XOÁ LUÔN TIN NHẮN NÀY
+                            const messageId = update.callback_query.message.message_id;
+                            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    chat_id: TELEGRAM_CHAT_ID,
+                                    message_id: messageId
+                                })
+                            });
+
+                            // 3. Dừng vòng lặp và cập nhật web cho khách
                             clearInterval(adminCheckInterval);
                             clearInterval(countdownInterval);
                             showSuccessArea(orderData);
@@ -108,6 +133,7 @@ function listenToAdmin(orderData) {
                         }
                     }
 
+                    // Giữ lại phần gõ tay phòng khi nút lỗi
                     if (update.message && update.message.text) {
                         const text = update.message.text.toUpperCase().trim();
                         if (text === `DUYET ${orderData.orderId.toUpperCase()}`) {
@@ -124,10 +150,7 @@ function listenToAdmin(orderData) {
         }
     }, 3000); 
 }
-
-function createPayment() {
-    const game = document.getElementById('game').value;
-    const uid = document.getElementById('uid').value.trim();
+trim();
     
     if (!uid) return alert("Vui lòng nhập UID!");
     if (uid.length < 5) return alert("UID không hợp lệ (quá ngắn)!");
@@ -219,14 +242,6 @@ async function downloadQR() {
         a.download = `QR_${orderId}.png`;
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
-        alert("Đã tải mã QR về máy!");
-    } catch (e) {
-        window.open(imgUrl, '_blank');
-    }
-}
-
-function cancelOrder() {
     clearInterval(adminCheckInterval);
     localStorage.removeItem('currentOrder');
     location.reload();
