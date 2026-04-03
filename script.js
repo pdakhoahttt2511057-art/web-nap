@@ -34,7 +34,7 @@ if (priceContainer) {
 }
 
 // Tự động khôi phục đơn hàng đang dở dang khi F5 lại trang
-window.onload = function() {
+window.onload = async function() {
     const savedOrder = localStorage.getItem('currentOrder');
     if (savedOrder) {
         const orderData = JSON.parse(savedOrder);
@@ -45,8 +45,8 @@ window.onload = function() {
             startTimer(timeRemaining, orderData.expireAt, orderData);
             listenToAdmin(orderData); 
         } else {
-            // Nếu F5 mà đơn đã hết hạn (quá 5p), xóa tin nhắn Telegram cho sạch
-            deleteTelegramMessage(orderData.messageId);
+            // Nếu F5 mà đơn đã hết hạn (quá 5p), chờ xóa tin nhắn Telegram cho sạch rồi mới dọn storage
+            await deleteTelegramMessage(orderData.messageId);
             localStorage.removeItem('currentOrder');
         }
     }
@@ -55,6 +55,19 @@ window.onload = function() {
 // Tạo mã đơn ngẫu nhiên
 function generateOrderID() {
     return 'GA' + Math.random().toString(36).substr(2, 6).toUpperCase();
+}
+
+// Hàm hỗ trợ xóa tin nhắn Telegram (Có thêm return Promise)
+function deleteTelegramMessage(messageId) {
+    if (!messageId) return Promise.resolve();
+    return fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            chat_id: TELEGRAM_CHAT_ID, 
+            message_id: messageId 
+        })
+    }).catch(e => console.log("Không thể xóa tin nhắn:", e));
 }
 
 // Hàm gửi thông báo và lưu lại ID tin nhắn
@@ -91,16 +104,6 @@ async function sendTelegramNotification(orderData) {
     } catch (error) {
         console.log("Lỗi gửi thông báo Telegram");
     }
-}
-
-// Hàm hỗ trợ xóa tin nhắn Telegram
-function deleteTelegramMessage(messageId) {
-    if (!messageId) return;
-    fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, message_id: messageId })
-    }).catch(e => console.log("Không thể xóa tin nhắn:", e));
 }
 
 // Lắng nghe thao tác duyệt đơn từ Admin
@@ -185,6 +188,9 @@ function createPayment() {
 
     const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt, createdAt };
     
+    // Lưu vào bộ nhớ tạm trước khi gửi
+    localStorage.setItem('currentOrder', JSON.stringify(orderData));
+
     // Thực thi các hàm
     sendTelegramNotification(orderData);
     showResultArea(orderData);
@@ -273,18 +279,26 @@ async function downloadQR() {
     }
 }
 
-// Khách hủy đơn -> Xóa tin nhắn Telegram & Reset web
-function cancelOrder() {
+// Khách hủy đơn -> Chờ xóa tin nhắn Telegram xong mới Reset web
+async function cancelOrder() {
+    // Hiển thị trạng thái đang xử lý để khách không bấm nhiều lần
+    const cancelBtn = document.querySelector('.btn-cancel');
+    if (cancelBtn) cancelBtn.innerText = "Đang hủy...";
+
     clearInterval(adminCheckInterval);
     clearInterval(countdownInterval);
     
     const savedOrder = localStorage.getItem('currentOrder');
     if (savedOrder) {
         const orderData = JSON.parse(savedOrder);
-        // Nếu có ID tin nhắn, ra lệnh xoá trên Telegram
-        deleteTelegramMessage(orderData.messageId);
+        
+        if (orderData.messageId) {
+            // Dùng await để đợi lệnh xóa hoàn tất rồi mới đi tiếp
+            await deleteTelegramMessage(orderData.messageId);
+        }
     }
     
+    // Sau khi xóa xong (hoặc không có đơn) thì mới xóa storage và reload
     localStorage.removeItem('currentOrder');
     location.reload();
 }
