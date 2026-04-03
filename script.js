@@ -17,19 +17,21 @@ let lastUpdateId = 0; // Đánh dấu tin nhắn Telegram đã đọc
 
 // Khởi tạo các nút chọn mệnh giá
 const priceContainer = document.getElementById('price-container');
-denominations.forEach(amount => {
-    const discounted = amount * 0.94;
-    const btn = document.createElement('div');
-    btn.className = 'price-btn';
-    btn.innerHTML = `<span class="original">${amount.toLocaleString('vi-VN')}đ</span><span class="discounted">${discounted.toLocaleString('vi-VN')}đ</span>`;
-    btn.onclick = function() {
-        document.querySelectorAll('.price-btn').forEach(el => el.classList.remove('active'));
-        this.classList.add('active');
-        selectedOriginal = amount; 
-        selectedDiscounted = discounted;
-    };
-    priceContainer.appendChild(btn);
-});
+if (priceContainer) {
+    denominations.forEach(amount => {
+        const discounted = amount * 0.94;
+        const btn = document.createElement('div');
+        btn.className = 'price-btn';
+        btn.innerHTML = `<span class="original">${amount.toLocaleString('vi-VN')}đ</span><span class="discounted">${discounted.toLocaleString('vi-VN')}đ</span>`;
+        btn.onclick = function() {
+            document.querySelectorAll('.price-btn').forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+            selectedOriginal = amount; 
+            selectedDiscounted = discounted;
+        };
+        priceContainer.appendChild(btn);
+    });
+}
 
 // Tự động khôi phục đơn hàng đang dở dang khi F5 lại trang
 window.onload = function() {
@@ -53,8 +55,8 @@ function generateOrderID() {
     return 'GA' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
-// Hàm gửi thông báo có kèm nút bấm (Button) về Telegram
-function sendTelegramNotification(orderData) {
+// Hàm gửi thông báo và lưu lại ID tin nhắn
+async function sendTelegramNotification(orderData) {
     const message = `🔔 <b>CÓ ĐƠN NẠP MỚI</b> 🔔\n` +
                     `- Mã đơn: <b>${orderData.orderId}</b>\n` +
                     `- Game: ${orderData.game}\n` +
@@ -62,22 +64,31 @@ function sendTelegramNotification(orderData) {
                     `- Gói nạp: ${orderData.original.toLocaleString('vi-VN')}đ\n` +
                     `- Cần thanh toán: <b>${orderData.discounted.toLocaleString('vi-VN')}đ</b>`;
 
-    fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: TELEGRAM_CHAT_ID,
-            text: message,
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        { text: "✅ DUYỆT ĐƠN NÀY", callback_data: `DUYET_${orderData.orderId}` }
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                text: message,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [ { text: "✅ DUYỆT ĐƠN NÀY", callback_data: `DUYET_${orderData.orderId}` } ]
                     ]
-                ]
-            }
-        })
-    });
+                }
+            })
+        });
+        
+        const json = await response.json();
+        // Nếu gửi thành công, lưu lại message_id vào đơn hàng để sau này xử lý xoá/sửa
+        if (json.ok) {
+            orderData.messageId = json.result.message_id;
+            localStorage.setItem('currentOrder', JSON.stringify(orderData));
+        }
+    } catch (error) {
+        console.log("Lỗi gửi thông báo Telegram");
+    }
 }
 
 // Lắng nghe thao tác duyệt đơn từ Admin
@@ -93,43 +104,39 @@ function listenToAdmin(orderData) {
                 for (let update of json.result) {
                     lastUpdateId = update.update_id + 1; 
                     
-                    // Nếu Admin bấm vào nút DUYỆT ĐƠN NÀY
                     if (update.callback_query && update.callback_query.data) {
                         if (update.callback_query.data === `DUYET_${orderData.orderId}`) {
                             
-                            // 1. Phản hồi để tắt vòng xoay của nút trên Telegram
+                            // 1. Phản hồi để tắt vòng xoay của nút
                             fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
                                     callback_query_id: update.callback_query.id, 
-                                    text: "Đã duyệt thành công! Đang xoá tin nhắn..." 
+                                    text: "Đã duyệt đơn! Khách đã nhận được hàng." 
                                 })
                             });
 
-                            // 2. Xoá luôn tin nhắn đó cho gọn chat
+                            // 2. CHỈNH SỬA TIN NHẮN (Bỏ nút bấm đi và báo đã xử lý xong)
                             const messageId = update.callback_query.message.message_id;
-                            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+                            const newText = `✅ <b>ĐƠN HÀNG ĐÃ XỬ LÝ XONG</b> ✅\n` +
+                                            `- Mã đơn: <b>${orderData.orderId}</b>\n` +
+                                            `- Game: ${orderData.game}\n` +
+                                            `- UID: <code>${orderData.uid}</code>\n` +
+                                            `- Gói nạp: ${orderData.original.toLocaleString('vi-VN')}đ`;
+
+                            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageText`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ 
                                     chat_id: TELEGRAM_CHAT_ID,
-                                    message_id: messageId
+                                    message_id: messageId,
+                                    text: newText,
+                                    parse_mode: 'HTML'
                                 })
                             });
 
-                            // 3. Dừng vòng lặp và cập nhật Web cho khách sang Nạp Thành Công
-                            clearInterval(adminCheckInterval);
-                            clearInterval(countdownInterval);
-                            showSuccessArea(orderData);
-                            return;
-                        }
-                    }
-
-                    // Vẫn giữ tính năng duyệt dự phòng bằng cách gõ tay "DUYET GAxxx"
-                    if (update.message && update.message.text) {
-                        const text = update.message.text.toUpperCase().trim();
-                        if (text === `DUYET ${orderData.orderId.toUpperCase()}`) {
+                            // 3. Cập nhật Web cho khách sang Nạp Thành Công
                             clearInterval(adminCheckInterval);
                             clearInterval(countdownInterval);
                             showSuccessArea(orderData);
@@ -226,7 +233,7 @@ function showSuccessArea(data) {
     
     document.getElementById('success-order-id').innerText = data.orderId;
     document.getElementById('success-game').innerText = data.game;
-    document.getElementById('success-package').innerText = data.original.toLocaleString('vi-VN') + "đ"; // Thêm thông tin gói nạp
+    document.getElementById('success-package').innerText = data.original.toLocaleString('vi-VN') + "đ";
     document.getElementById('success-uid').innerText = data.uid;
     
     localStorage.removeItem('currentOrder'); 
@@ -253,9 +260,28 @@ async function downloadQR() {
     }
 }
 
-// Hủy đơn và reset
+// Khách hủy đơn -> Xóa tin nhắn Telegram & Reset web
 function cancelOrder() {
     clearInterval(adminCheckInterval);
+    clearInterval(countdownInterval);
+    
+    const savedOrder = localStorage.getItem('currentOrder');
+    if (savedOrder) {
+        const orderData = JSON.parse(savedOrder);
+        
+        // Nếu có ID tin nhắn, ra lệnh xoá trên Telegram
+        if (orderData.messageId) {
+            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chat_id: TELEGRAM_CHAT_ID,
+                    message_id: orderData.messageId
+                })
+            }).catch(e => console.log(e));
+        }
+    }
+    
     localStorage.removeItem('currentOrder');
     location.reload();
 }
