@@ -243,4 +243,45 @@ button.submit-btn:disabled {
     border: 1px dashed #d32f2f; 
     letter-spacing: 1px;
 }
+/* CSS cho Nút Zalo Floating ở góc trái */
+.zalo-float-left {
+  position: fixed;
+  bottom: 20px; /* Cách đáy màn hình */
+  left: 20px;   /* Cách lề trái màn hình - THEO YÊU CẦU */
+  z-index: 9999; /* Luôn nằm trên cùng */
+  cursor: pointer;
+  transition: transform 0.3s ease-in-out;
+}
+
+.zalo-icon-circle {
+  width: 60px;
+  height: 60px;
+  background-color: #0068FF; /* Màu xanh Zalo chuẩn */
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 104, 255, 0.4); /* Tạo bóng đổ */
+  
+  /* Hiệu ứng nhấp nháy thu hút chú ý */
+  animation: zalo-pulser 2s infinite;
+}
+
+.zalo-float-left:hover {
+  transform: scale(1.1); /* Phóng to nhẹ khi di chuột vào */
+}
+
+/* Định nghĩa hiệu ứng nhấp nháy (Pulse) */
+@keyframes zalo-pulser {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 104, 255, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(0, 104, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 104, 255, 0);
+  }
+}
+
 
