@@ -75,20 +75,11 @@ function sendTelegramNotification(orderData) {
             }
         })
     });
-}
 
-        window.URL.revokeObjectURL(url);
-        alert("Đã tải mã QR về máy!");
-    } catch (e) {
-        window.open(imgUrl, '_blank');
-    }
-}
 
-function cancelOrder() {
 
-function createPayment() {
-    const game = document.getElementById('game').value;
-    const uid = document.getElementById('uid').value.function listenToAdmin(orderData) {
+
+    function listenToAdmin(orderData) {
     clearInterval(adminCheckInterval);
     
     adminCheckInterval = setInterval(async () => {
@@ -149,8 +140,15 @@ function createPayment() {
             console.log("Đang chờ admin...");
         }
     }, 3000); 
+    }
+    
 }
-trim();
+
+
+
+function createPayment() {
+    const game = document.getElementById('game').value;
+    const uid = document.getElementById('uid').value.trim();
     
     if (!uid) return alert("Vui lòng nhập UID!");
     if (uid.length < 5) return alert("UID không hợp lệ (quá ngắn)!");
@@ -242,6 +240,14 @@ async function downloadQR() {
         a.download = `QR_${orderId}.png`;
         document.body.appendChild(a);
         a.click();
+        window.URL.revokeObjectURL(url);
+        alert("Đã tải mã QR về máy!");
+    } catch (e) {
+        window.open(imgUrl, '_blank');
+    }
+}
+
+function cancelOrder() {
     clearInterval(adminCheckInterval);
     localStorage.removeItem('currentOrder');
     location.reload();
@@ -252,4 +258,3 @@ function copyText(text) {
         alert("Đã sao chép: " + text);
     });
 }
-
