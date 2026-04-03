@@ -12,8 +12,7 @@ let selectedOriginal = 0;
 let selectedDiscounted = 0;
 let countdownInterval;
 let adminCheckInterval; 
-let currentOrderId = "";
-let lastUpdateId = 0; // Đánh dấu tin nhắn Telegram đã đọc
+let lastUpdateId = 0;
 
 // Khởi tạo các nút chọn mệnh giá
 const priceContainer = document.getElementById('price-container');
@@ -33,7 +32,7 @@ if (priceContainer) {
     });
 }
 
-// Tự động khôi phục đơn hàng đang dở dang khi F5 lại trang
+// Khôi phục đơn hàng khi F5
 window.onload = function() {
     const savedOrder = localStorage.getItem('currentOrder');
     if (savedOrder) {
@@ -42,26 +41,26 @@ window.onload = function() {
         
         if (timeRemaining > 0) {
             showResultArea(orderData);
-            startTimer(timeRemaining, orderData.expireAt);
+            startTimer(timeRemaining, orderData.expireAt, orderData); // Truyền thêm orderData
             listenToAdmin(orderData); 
         } else {
+            // Nếu đã quá 5p khi vừa mở lại trang, tiến hành xóa tin nhắn cũ (nếu có)
+            deleteTelegramMessage(orderData.messageId);
             localStorage.removeItem('currentOrder');
         }
     }
 };
 
-// Tạo mã đơn ngẫu nhiên
 function generateOrderID() {
     return 'GA' + Math.random().toString(36).substr(2, 6).toUpperCase();
 }
 
-// Hàm gửi thông báo và lưu lại ID tin nhắn
+// Gửi tin nhắn Telegram
 async function sendTelegramNotification(orderData) {
-    const message = `🔔 <b>CÓ ĐƠN NẠP MỚI</b> 🔔\n` +
+    const message = `🔔 <b>CÓ ĐƠN NẠP MỚI (Hết hạn sau 5p)</b> 🔔\n` +
                     `- Mã đơn: <b>${orderData.orderId}</b>\n` +
                     `- Game: ${orderData.game}\n` +
                     `🎯 <b>UID:</b> <code>${orderData.uid}</code> 🎯\n` +
-                    `- Gói nạp: ${orderData.original.toLocaleString('vi-VN')}đ\n` +
                     `- Cần thanh toán: <b>${orderData.discounted.toLocaleString('vi-VN')}đ</b>`;
 
     try {
@@ -73,144 +72,41 @@ async function sendTelegramNotification(orderData) {
                 text: message,
                 parse_mode: 'HTML',
                 reply_markup: {
-                    inline_keyboard: [
-                        [ { text: "✅ DUYỆT ĐƠN NÀY", callback_data: `DUYET_${orderData.orderId}` } ]
-                    ]
+                    inline_keyboard: [[ { text: "✅ DUYỆT ĐƠN NÀY", callback_data: `DUYET_${orderData.orderId}` } ]]
                 }
             })
         });
-        
         const json = await response.json();
-        // Nếu gửi thành công, lưu lại message_id vào đơn hàng để sau này xử lý xoá/sửa
         if (json.ok) {
             orderData.messageId = json.result.message_id;
             localStorage.setItem('currentOrder', JSON.stringify(orderData));
         }
-    } catch (error) {
-        console.log("Lỗi gửi thông báo Telegram");
-    }
+    } catch (e) { console.log("Lỗi gửi tin nhắn"); }
 }
 
-// Lắng nghe thao tác duyệt đơn từ Admin
-function listenToAdmin(orderData) {
-    clearInterval(adminCheckInterval);
-    
-    adminCheckInterval = setInterval(async () => {
-        try {
-            const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId}`);
-            const json = await response.json();
-            
-            if (json.ok && json.result.length > 0) {
-                for (let update of json.result) {
-                    lastUpdateId = update.update_id + 1; 
-                    
-                    if (update.callback_query && update.callback_query.data) {
-                        if (update.callback_query.data === `DUYET_${orderData.orderId}`) {
-                            
-                            // 1. Phản hồi để tắt vòng xoay của nút
-                            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    callback_query_id: update.callback_query.id, 
-                                    text: "Đã duyệt đơn! Khách đã nhận được hàng." 
-                                })
-                            });
-
-                            // 2. CHỈNH SỬA TIN NHẮN (Bỏ nút bấm đi và báo đã xử lý xong)
-                            const messageId = update.callback_query.message.message_id;
-                            const newText = `✅ <b>ĐƠN HÀNG ĐÃ XỬ LÝ XONG</b> ✅\n` +
-                                            `- Mã đơn: <b>${orderData.orderId}</b>\n` +
-                                            `- Game: ${orderData.game}\n` +
-                                            `- UID: <code>${orderData.uid}</code>\n` +
-                                            `- Gói nạp: ${orderData.original.toLocaleString('vi-VN')}đ`;
-
-                            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageText`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    chat_id: TELEGRAM_CHAT_ID,
-                                    message_id: messageId,
-                                    text: newText,
-                                    parse_mode: 'HTML'
-                                })
-                            });
-
-                            // 3. Cập nhật Web cho khách sang Nạp Thành Công
-                            clearInterval(adminCheckInterval);
-                            clearInterval(countdownInterval);
-                            showSuccessArea(orderData);
-                            return;
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.log("Đang chờ admin...");
-        }
-    }, 3000); 
+// Hàm hỗ trợ xóa tin nhắn Telegram
+function deleteTelegramMessage(messageId) {
+    if (!messageId) return;
+    fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, message_id: messageId })
+    }).catch(e => console.log("Không thể xóa tin nhắn:", e));
 }
 
-// Xử lý tạo đơn hàng
-function createPayment() {
-    const game = document.getElementById('game').value;
-    const uid = document.getElementById('uid').value.trim();
-    
-    // Điều kiện nhập ID
-    if (!uid) return alert("Vui lòng nhập UID!");
-    if (uid.length < 5) return alert("UID không hợp lệ (quá ngắn)!");
-    if (selectedOriginal === 0) return alert("Vui lòng chọn mệnh giá!");
-
-    document.getElementById('btn-create').innerText = "Đang xử lý...";
-    document.getElementById('btn-create').disabled = true;
-
-    const orderId = generateOrderID(); 
-    currentOrderId = orderId;
-    const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact.png?amount=${selectedDiscounted}&addInfo=${orderId}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
-
-    const expireAt = Date.now() + (30 * 60 * 1000); // Đếm ngược 30 phút
-    const createdAt = new Date().toLocaleString('vi-VN'); 
-
-    const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt, createdAt };
-    
-    // Lưu vào bộ nhớ tạm
-    localStorage.setItem('currentOrder', JSON.stringify(orderData));
-
-    // Thực thi các hàm
-    sendTelegramNotification(orderData);
-    showResultArea(orderData);
-    startTimer(30 * 60, expireAt); 
-    listenToAdmin(orderData); 
-}
-
-// Hiển thị phần thanh toán (Mã QR)
-function showResultArea(data) {
-    document.getElementById('out-order-id').innerText = data.orderId;
-    document.getElementById('out-game').innerText = data.game;
-    document.getElementById('out-uid').innerText = data.uid;
-    document.getElementById('out-original').innerText = data.original.toLocaleString('vi-VN') + "đ";
-    document.getElementById('out-discounted').innerText = data.discounted.toLocaleString('vi-VN') + "đ";
-    
-    document.getElementById('bank-amount').innerText = data.discounted.toLocaleString('vi-VN') + "đ";
-    document.getElementById('bank-content').innerText = data.orderId;
-    document.getElementById('qr-image').src = data.qrUrl;
-
-    document.getElementById('copy-amount-btn').onclick = () => copyText(data.discounted.toString());
-    document.getElementById('copy-content-btn').onclick = () => copyText(data.orderId);
-
-    document.getElementById('input-area').style.display = 'none';
-    document.getElementById('result-area').style.display = 'block';
-}
-
-// Bắt đầu đếm ngược thời gian
-function startTimer(durationInSeconds, expireAt) {
+// Bắt đầu đếm ngược 5 PHÚT
+function startTimer(duration, expireAt, orderData) {
     clearInterval(countdownInterval);
     countdownInterval = setInterval(function () {
         let timer = Math.floor((expireAt - Date.now()) / 1000);
         
-        if (timer < 0) {
+        if (timer <= 0) {
             clearInterval(countdownInterval);
-            clearInterval(adminCheckInterval); 
+            clearInterval(adminCheckInterval);
+            
+            // TỰ ĐỘNG XÓA TIN NHẮN KHI HẾT 5 PHÚT
+            deleteTelegramMessage(orderData.messageId);
+            
             localStorage.removeItem('currentOrder');
             document.getElementById('active-order').style.display = 'none';
             document.getElementById('timer-display').style.display = 'none';
@@ -220,75 +116,92 @@ function startTimer(durationInSeconds, expireAt) {
 
         let minutes = parseInt(timer / 60, 10);
         let seconds = parseInt(timer % 60, 10);
-        minutes = minutes < 10 ? "0" + minutes : minutes;
-        seconds = seconds < 10 ? "0" + seconds : seconds;
-        document.getElementById('countdown').textContent = minutes + ":" + seconds;
+        document.getElementById('countdown').textContent = (minutes < 10 ? "0" + minutes : minutes) + ":" + (seconds < 10 ? "0" + seconds : seconds);
     }, 1000);
 }
 
-// Chuyển sang màn hình nạp thành công
+function listenToAdmin(orderData) {
+    clearInterval(adminCheckInterval);
+    adminCheckInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId}`);
+            const json = await response.json();
+            if (json.ok && json.result.length > 0) {
+                for (let update of json.result) {
+                    lastUpdateId = update.update_id + 1;
+                    if (update.callback_query && update.callback_query.data === `DUYET_${orderData.orderId}`) {
+                        // Phản hồi tắt loading nút
+                        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ callback_query_id: update.callback_query.id, text: "Đã duyệt đơn!" })
+                        });
+
+                        // Sửa tin nhắn thành "Đã xử lý"
+                        const newText = `✅ <b>ĐƠN HÀNG ĐÃ XỬ LÝ XONG</b> ✅\n- Mã đơn: ${orderData.orderId}\n- UID: ${orderData.uid}`;
+                        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageText`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, message_id: update.callback_query.message.message_id, text: newText, parse_mode: 'HTML' })
+                        });
+
+                        clearInterval(adminCheckInterval);
+                        clearInterval(countdownInterval);
+                        showSuccessArea(orderData);
+                        return;
+                    }
+                }
+            }
+        } catch (e) {}
+    }, 3000);
+}
+
+function createPayment() {
+    const game = document.getElementById('game').value;
+    const uid = document.getElementById('uid').value.trim();
+    if (!uid || selectedOriginal === 0) return alert("Vui lòng điền đủ thông tin!");
+
+    const orderId = generateOrderID();
+    const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact.png?amount=${selectedDiscounted}&addInfo=${orderId}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+    const expireAt = Date.now() + (5 * 60 * 1000); // Đổi thành 5 phút
+
+    const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt };
+    
+    sendTelegramNotification(orderData);
+    showResultArea(orderData);
+    startTimer(5 * 60, expireAt, orderData); 
+    listenToAdmin(orderData);
+}
+
+function showResultArea(data) {
+    document.getElementById('out-order-id').innerText = data.orderId;
+    document.getElementById('bank-amount').innerText = data.discounted.toLocaleString('vi-VN') + "đ";
+    document.getElementById('bank-content').innerText = data.orderId;
+    document.getElementById('qr-image').src = data.qrUrl;
+    document.getElementById('input-area').style.display = 'none';
+    document.getElementById('result-area').style.display = 'block';
+}
+
 function showSuccessArea(data) {
     document.getElementById('result-area').style.display = 'none';
     document.getElementById('success-area').style.display = 'block';
-    
     document.getElementById('success-order-id').innerText = data.orderId;
-    document.getElementById('success-game').innerText = data.game;
-    document.getElementById('success-package').innerText = data.original.toLocaleString('vi-VN') + "đ";
-    document.getElementById('success-uid').innerText = data.uid;
-    
-    localStorage.removeItem('currentOrder'); 
+    localStorage.removeItem('currentOrder');
 }
 
-// Chức năng tải QR về máy
-async function downloadQR() {
-    const imgUrl = document.getElementById('qr-image').src;
-    const orderId = document.getElementById('out-order-id').innerText;
-    try {
-        const response = await fetch(imgUrl);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `QR_${orderId}.png`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        alert("Đã tải mã QR về máy!");
-    } catch (e) {
-        window.open(imgUrl, '_blank');
-    }
-}
-
-// Khách hủy đơn -> Xóa tin nhắn Telegram & Reset web
 function cancelOrder() {
-    clearInterval(adminCheckInterval);
-    clearInterval(countdownInterval);
-    
     const savedOrder = localStorage.getItem('currentOrder');
     if (savedOrder) {
         const orderData = JSON.parse(savedOrder);
-        
-        // Nếu có ID tin nhắn, ra lệnh xoá trên Telegram
-        if (orderData.messageId) {
-            fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: TELEGRAM_CHAT_ID,
-                    message_id: orderData.messageId
-                })
-            }).catch(e => console.log(e));
-        }
+        deleteTelegramMessage(orderData.messageId);
     }
-    
+    clearInterval(adminCheckInterval);
+    clearInterval(countdownInterval);
     localStorage.removeItem('currentOrder');
     location.reload();
 }
 
-// Helper: Hàm sao chép văn bản
 function copyText(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        alert("Đã sao chép: " + text);
-    });
+    navigator.clipboard.writeText(text).then(() => alert("Đã sao chép: " + text));
 }
+    
