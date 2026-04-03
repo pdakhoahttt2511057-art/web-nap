@@ -77,7 +77,7 @@
         <div id="active-order">
             <div class="bill-info">
                 <p>Mã đơn: <span class="val" id="out-order-id" style="color: var(--primary-color);"></span></p>
-                <p>Game: <span class="val" id="out-game"></span></p>
+                <p>Thời gian tạo: <span class="val" id="out-created-time"></span></p> <p>Game: <span class="val" id="out-game"></span></p>
                 <p>UID: <span class="val" id="out-uid"></span></p>
                 <p>Gói nạp: <span class="val" id="out-original"></span></p>
                 <p>Thành tiền: <span class="val" id="out-discounted" style="color: var(--primary-color); font-size: 16px;"></span></p>
@@ -89,7 +89,7 @@
                 <img id="qr-image" src="" alt="QR Code" crossorigin="anonymous">
                 
                 <div class="action-btns">
-                    <button class="small-btn" onclick="downloadQR()">⬇️ Tải Ảnh QR</button>
+                    <button class="small-btn" onclick="downloadQR()">Tải Ảnh QR</button>
                 </div>
                 
                 <div class="bank-details">
@@ -99,7 +99,7 @@
                     <p><span>Số tiền:</span> <span><span class="info" id="bank-amount"></span><button class="copy-btn" id="copy-amount-btn">Copy</button></span></p>
                     <p><span>Nội dung:</span> <span><span class="info" id="bank-content" style="color: var(--primary-color);"></span><button class="copy-btn" id="copy-content-btn">Copy</button></span></p>
                 </div>
-                <span class="warning-text">⚠️ Chuyển đúng NỘI DUNG & SỐ TIỀN để hệ thống nạp tự động.</span>
+                <span class="warning-text">Chuyển đúng NỘI DUNG & SỐ TIỀN để hệ thống nạp tự động.</span>
                 
                 <hr style="border: 0; border-top: 1px dashed #ddd; margin: 20px 0;">
                 <div class="loader"></div>
@@ -135,7 +135,8 @@
     const BANK_ID = "VCB"; 
     const ACCOUNT_NO = "9794467190"; 
     const ACCOUNT_NAME = "PHAM DOAN ANH KHOA";     
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbw0Jo2onzr2PHjrYEJrk_6D0R-Qm4dPSdxTELSNhneOB00BTDAQ53tAdWwl6VapkgYU/exec";
+    // ĐÃ CHỈNH SỬA LẠI LINK THEO YÊU CẦU
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwy7_nwQ_YB1Gi3mgsi6rBelPCCLrSaLkOkJ5Cv9OtUxJt0o3pW7CedNjYdgX1rGgn1QQ/exec";
 
     const denominations = [20000, 50000, 100000, 200000, 500000, 1000000];
     let selectedOriginal = 0; 
@@ -194,8 +195,10 @@
         const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact.png?amount=${selectedDiscounted}&addInfo=${orderId}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
 
         const expireAt = Date.now() + (10 * 60 * 1000);
+        // Lấy thời gian tạo đơn
+        const createdAt = new Date().toLocaleString('vi-VN'); 
 
-        const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt };
+        const orderData = { orderId, game, uid, original: selectedOriginal, discounted: selectedDiscounted, qrUrl, expireAt, createdAt };
         
         localStorage.setItem('currentOrder', JSON.stringify(orderData));
 
@@ -203,16 +206,18 @@
             method: 'POST',
             mode: 'no-cors', 
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ orderId, game, uid, originalPrice: selectedOriginal, discountedPrice: selectedDiscounted })
+            body: new URLSearchParams({ orderId, game, uid, originalPrice: selectedOriginal, discountedPrice: selectedDiscounted, createdAt })
         });
 
         showResultArea(orderData);
         startTimer(10 * 60, expireAt);
-        startCheckingStatus(orderId, orderData); // Bắt đầu kiểm tra trạng thái
+        startCheckingStatus(orderId, orderData); 
     }
 
     function showResultArea(data) {
         document.getElementById('out-order-id').innerText = data.orderId;
+        // Hiển thị thời gian tạo đơn
+        document.getElementById('out-created-time').innerText = data.createdAt; 
         document.getElementById('out-game').innerText = data.game;
         document.getElementById('out-uid').innerText = data.uid;
         document.getElementById('out-original').innerText = data.original.toLocaleString('vi-VN') + "đ";
@@ -236,7 +241,7 @@
             
             if (timer < 0) {
                 clearInterval(countdownInterval);
-                clearInterval(checkStatusInterval); // Dừng kiểm tra khi hết hạn
+                clearInterval(checkStatusInterval); 
                 localStorage.removeItem('currentOrder');
                 document.getElementById('active-order').style.display = 'none';
                 document.getElementById('timer-display').style.display = 'none';
@@ -265,7 +270,7 @@
                     }
                 })
                 .catch(err => console.error("Lỗi kiểm tra trạng thái:", err));
-        }, 5000); // Kiểm tra mỗi 5 giây
+        }, 5000); 
     }
 
     function showSuccessArea(data) {
@@ -274,7 +279,7 @@
         document.getElementById('success-order-id').innerText = data.orderId;
         document.getElementById('success-game').innerText = data.game;
         document.getElementById('success-uid').innerText = data.uid;
-        localStorage.removeItem('currentOrder'); // Hoàn thành thì xóa bộ nhớ
+        localStorage.removeItem('currentOrder'); 
     }
 
     async function downloadQR() {
