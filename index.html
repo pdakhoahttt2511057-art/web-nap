@@ -24,7 +24,7 @@
         <label>ID Nhân vật (UID)</label>
         <input type="text" id="uid" placeholder="Nhập chính xác UID (chỉ nhập số)..." maxlength="20" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
         
-        <label>Chọn mệnh giá (Giảm 6%)</label>
+        <label>Chọn mệnh giá</label>
         <div class="price-grid" id="price-container"></div>
         
         <button id="btn-create" class="submit-btn" onclick="createPayment()">Tạo Đơn Hàng</button>
@@ -39,7 +39,7 @@
             <div class="bill-info">
                 <p>Mã đơn: <span class="val" id="out-order-id" style="color: var(--primary-color);"></span></p>
                 <p>Game: <span class="val" id="out-game"></span></p>
-                <p>UID: <span class="val uid-highlight" id="out-uid"></span></p>
+                <p>UID: <span class="val" id="out-uid"></span></p>
                 <p>Gói nạp: <span class="val" id="out-original"></span></p>
                 <p>Thành tiền: <span class="val" id="out-discounted" style="color: var(--primary-color); font-size: 16px;"></span></p>
             </div>
@@ -62,7 +62,7 @@
                 </div>
                 <span class="warning-text">Chuyển đúng NỘI DUNG & SỐ TIỀN để hệ thống nạp tự động.</span>
                 
-                <span class="waiting-text" id="waiting-status">⏳ Đang chờ Admin xác nhận thanh toán...</span>
+                <span class="waiting-text" id="waiting-status"> Đang chờ duyệt...</span>
             </div>
         </div>
 
@@ -71,7 +71,7 @@
             <span style="font-size: 14px; font-weight: normal; margin-top: 10px; display: block;">Vui lòng tạo đơn mới.</span>
         </div>
 
-        <button class="submit-btn" style="margin-top: 20px; background: #666;" onclick="cancelOrder()">Quay lại / Hủy đơn</button>
+        <button class="submit-btn" style="margin-top: 20px; background: #666;" onclick="cancelOrder()">Quay lại</button>
     </div>
 
     <div id="success-area">
@@ -83,7 +83,6 @@
             <p>Gói nạp: <span class="val" id="success-package" style="color: var(--primary-color);"></span></p>
             <p>ID nhận: <span class="val uid-highlight" style="border-color: var(--success-color); color: var(--success-color); background: #e8f5e9;" id="success-uid"></span></p>
         </div>
-        <p style="font-size: 14px; color: #555; margin-bottom: 20px; line-height: 1.5;">Vui lòng chờ...</p>
         <button class="submit-btn" style="background: var(--success-color);" onclick="cancelOrder()">Tạo đơn mới</button>
     </div>
 
