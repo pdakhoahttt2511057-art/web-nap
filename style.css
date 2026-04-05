@@ -231,18 +231,6 @@ button.submit-btn:disabled {
     50% { opacity: 0.3; } 
 }
 
-/* Highlight cho UID */
-.uid-highlight { 
-    color: #d32f2f; 
-    font-size: 18px; 
-    font-weight: 900; 
-    background: #ffebee; 
-    padding: 4px 10px; 
-    border-radius: 6px; 
-    border: 1px dashed #d32f2f; 
-    letter-spacing: 1px;
-}
-
 .zalo-float-left {
     position: fixed;
     bottom: 25px;
